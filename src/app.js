@@ -2,11 +2,13 @@ import express from 'express';
 import productsRouter from './routes/products.router.js';
 import usersRouter from './routes/users.router.js';
 import ordersRouter from './routes/orders.router.js';
+import deliveriesRouter from './routes/deliveries.router.js';
 import mocksRouter from './routes/mocks.router.js';
 import loggerTestRouter from './routes/logger-test.router.js';
 import { httpLogger } from './middlewares/http-logger.middleware.js';
 import { notFoundHandler } from './middlewares/not-found.middleware.js';
 import { errorHandler } from './middlewares/error.middleware.js';
+import { setupSwagger } from './config/swagger.config.js';
 
 const app = express();
 
@@ -20,8 +22,11 @@ app.get('/api/health', (req, res) => {
 app.use('/api/products', productsRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/orders', ordersRouter);
+app.use('/api/deliveries', deliveriesRouter);
 app.use('/api/mocks', mocksRouter);
 app.use('/api/loggerTest', loggerTestRouter);
+
+setupSwagger(app);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

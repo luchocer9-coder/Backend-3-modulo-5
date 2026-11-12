@@ -16,6 +16,7 @@ import {
   MockSeedError,
 } from '../errors/custom-errors.js';
 import { logger } from '../config/logger.config.js';
+import { calculateOrderTotal } from './order.service.js';
 
 const DEFAULT_QTY = 5;
 const MIN_QTY = 1;
@@ -80,14 +81,25 @@ const generateUser = (role) => {
   };
 };
 
-const generateOrder = (client) => ({
-  _id: mocksRepository.generateId(),
-  user: client._id,
-  address: `${faker.location.streetAddress()}, ${faker.location.city()}`,
-  total: faker.number.int({ min: 1000, max: 50000 }),
-  status: faker.helpers.arrayElement(Object.values(ORDER_STATUS)),
-  priority: faker.helpers.arrayElement(Object.values(ORDER_PRIORITY)),
+const generateItem = () => ({
+  description: faker.commerce.productName(),
+  quantity: faker.number.int({ min: 1, max: 5 }),
+  unitPrice: faker.number.int({ min: 500, max: 20000 }),
 });
+
+const generateOrder = (client) => {
+  const items = Array.from({ length: faker.number.int({ min: 1, max: 3 }) }, generateItem);
+
+  return {
+    _id: mocksRepository.generateId(),
+    user: client._id,
+    address: `${faker.location.streetAddress()}, ${faker.location.city()}`,
+    items,
+    total: calculateOrderTotal(items),
+    status: faker.helpers.arrayElement(Object.values(ORDER_STATUS)),
+    priority: faker.helpers.arrayElement(Object.values(ORDER_PRIORITY)),
+  };
+};
 
 const generateDelivery = (order, drivers) => {
   const status = DELIVERY_STATUS_BY_ORDER[order.status];

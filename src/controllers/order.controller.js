@@ -15,6 +15,11 @@ class OrderController {
     const order = await orderService.create(req.body);
     res.status(201).json({ payload: order });
   }
+
+  async updateStatus(req, res) {
+    const order = await orderService.updateStatus(req.params.id, req.body?.status);
+    res.status(200).json({ payload: order });
+  }
 }
 
 export const orderController = new OrderController();

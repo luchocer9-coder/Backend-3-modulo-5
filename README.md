@@ -116,9 +116,19 @@ Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/mocks/seed/datase
 | GET, PUT, DELETE | `/api/users/:id` | Obtiene, actualiza o elimina un usuario |
 | GET, POST | `/api/orders` | Lista pedidos o crea uno |
 | GET | `/api/orders/:id` | Obtiene un pedido |
+| PATCH | `/api/orders/:id/status` | Cambia el estado de un pedido |
+| GET | `/api/deliveries` | Lista entregas |
+| GET | `/api/deliveries/:id` | Obtiene una entrega |
+| PATCH | `/api/deliveries/:id/status` | Cambia el estado de una entrega o le asigna un repartidor |
 | GET | `/api/loggerTest` | Genera un log de prueba en cada nivel |
+| GET | `/api/docs` | Documentación interactiva con Swagger |
 
-Para crear un pedido se envía `user` (id de un usuario con rol `USER`), `address`, `total` y, opcionalmente, `priority` (`LOW`, `MEDIUM` o `HIGH`). Todo pedido nuevo empieza con estado `PENDING`.
+Para crear un pedido se envía `user` (id de un usuario con rol `USER`), `address`, `items` (cada uno con `description`, `quantity` y `unitPrice`) y, opcionalmente, `priority` (`LOW`, `MEDIUM` o `HIGH`). El total lo calcula la API a partir de los items. Todo pedido nuevo empieza con estado `PENDING` y crea su entrega en estado `PENDING_ASSIGNMENT`, sin repartidor.
+
+Los cambios de estado permitidos son:
+
+- **Pedidos:** `PENDING` → `PREPARING` o `CANCELLED`; `PREPARING` → `SHIPPED` o `CANCELLED`; `SHIPPED` → `DELIVERED`.
+- **Entregas:** `PENDING_ASSIGNMENT` → `ASSIGNED` o `CANCELLED`; `ASSIGNED` → `IN_TRANSIT` o `CANCELLED`; `IN_TRANSIT` → `DELIVERED`. Para pasar a `ASSIGNED` hay que enviar `driver`, el id de un usuario con rol `DRIVER`.
 
 ## Por qué separé Service y Repository
 
@@ -165,6 +175,10 @@ Los services detectan los errores y los lanzan. Los controllers y las rutas no a
 | `VALIDATION_ERROR` | 400 | Faltan datos o no cumplen las reglas del modelo |
 | `INVALID_PASSWORD` | 400 | La contraseña tiene menos de 8 caracteres |
 | `INVALID_ORDER_USER` | 400 | Se intenta crear un pedido para un usuario que no tiene rol `USER` |
+| `INVALID_ORDER_ITEMS` | 400 | El pedido no tiene items |
+| `INVALID_ORDER_STATUS` | 400 | El estado del pedido no existe o no se puede aplicar desde el estado actual |
+| `INVALID_DELIVERY_STATUS` | 400 | El estado de la entrega no existe o no se puede aplicar desde el estado actual |
+| `INVALID_DELIVERY_DRIVER` | 400 | Se asigna una entrega sin un usuario con rol `DRIVER` |
 | `INVALID_PRODUCT_STATUS` | 400 | Se envía `status` en un producto, aunque se calcula según el stock |
 | `INVALID_MOCK_QTY` | 400 | `qty` no es un entero entre 1 y 100 |
 | `NEGATIVE_MOCK_QTY` | 400 | `qty` es negativo |
@@ -172,6 +186,7 @@ Los services detectan los errores y los lanzan. Los controllers y las rutas no a
 | `USER_NOT_FOUND` | 404 | No existe el usuario |
 | `PRODUCT_NOT_FOUND` | 404 | No existe el producto |
 | `ORDER_NOT_FOUND` | 404 | No existe el pedido |
+| `DELIVERY_NOT_FOUND` | 404 | No existe la entrega |
 | `ROUTE_NOT_FOUND` | 404 | La ruta no existe |
 | `DUPLICATE_KEY` | 409 | Ya existe un registro con ese dato único, como el email |
 | `MOCK_SEED_FAILED` | 500 | MongoDB falló durante la carga de datos de prueba |
@@ -260,3 +275,50 @@ El endpoint genera un log en cada nivel y responde cuáles se ven según el ento
 Este endpoint es una herramienta interna para revisar la configuración y no forma parte del negocio.
 
 Para ver un `fatal` real, borrar `MONGODB_URI` del `.env` y correr `npm run dev`: el servidor no arranca y el motivo queda en consola y en el archivo de errores.
+
+## Documentación con Swagger
+
+La API está documentada con OpenAPI 3 y se puede consultar y probar desde Swagger UI.
+
+### Cómo abrirla
+
+1. Levantar el servidor con `npm run dev`.
+2. Abrir en el navegador:
+
+   ```text
+   http://localhost:8080/api/docs
+   ```
+
+Cada endpoint tiene el botón **Try it out**, que permite completar los parámetros y el body y ejecutar la petición contra el servidor local.
+
+### Módulos documentados
+
+| Tag | Endpoints |
+|---|---|
+| Users | Listar, obtener, crear, actualizar y eliminar usuarios |
+| Orders | Listar, obtener y crear pedidos, y cambiar su estado |
+| Deliveries | Listar y obtener entregas, cambiar su estado y asignar repartidor |
+| Mocks | Generar usuarios, repartidores y pedidos simulados, e insertar datos de prueba |
+| Logger | Endpoint de prueba del logger. Es una herramienta de validación, no una funcionalidad del negocio |
+| Products | Listar, obtener, crear, actualizar y eliminar productos |
+
+Cada endpoint indica método, ruta, descripción, parámetros, body esperado, respuesta exitosa y posibles errores, con un ejemplo de cada código de error.
+
+### Organización de los archivos
+
+La configuración de Swagger está separada de las rutas:
+
+- `src/config/swagger.config.js`: monta Swagger UI en `/api/docs`.
+- `src/docs/openapi.js`: información general, servidor, tags y unión de todos los paths.
+- `src/docs/components/schemas.js`: schemas reutilizables, como `User`, `Order`, `OrderItem`, `Delivery`, `SuccessResponse` y `ErrorResponse`.
+- `src/docs/components/parameters.js`: parámetros reutilizables, como `id` y `qty`.
+- `src/docs/paths/`: un archivo por módulo con sus endpoints.
+- `src/docs/helpers.js`: funciones para armar respuestas. Los ejemplos de error se generan a partir del diccionario real de errores (`src/errors/error-dictionary.js`), así la documentación coincide con lo que responde la API.
+
+### Aclaraciones para probar
+
+- **La API no tiene autenticación:** todos los endpoints se pueden probar directamente.
+- **Para tener datos con qué probar,** primero ejecutar `POST /api/mocks/seed/dataset` y después copiar los ids de `GET /api/users`, `GET /api/orders` o `GET /api/deliveries`.
+- **Los endpoints de carga de mocks no llevan body:** la cantidad se envía en el parámetro `qty`. Con `NODE_ENV=production` responden `403`.
+- **Para asignar un repartidor,** usar `PATCH /api/deliveries/{id}/status` con `status: ASSIGNED` y el id de un usuario con rol `DRIVER`.
+- **Cualquier ruta que no exista** responde `404 ROUTE_NOT_FOUND` con el formato de error común.

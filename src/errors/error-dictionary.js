@@ -26,6 +26,29 @@ export const ERRORS = Object.freeze({
     statusCode: 400,
     message: 'Los pedidos solo pueden pertenecer a usuarios con rol USER',
   },
+  INVALID_ORDER_ITEMS: {
+    code: 'INVALID_ORDER_ITEMS',
+    statusCode: 400,
+    message: 'El pedido debe tener al menos un item',
+  },
+  INVALID_ORDER_STATUS: {
+    code: 'INVALID_ORDER_STATUS',
+    statusCode: 400,
+    message: 'El estado del pedido no es válido o no se puede aplicar desde el estado actual',
+  },
+
+  // Entregas
+  DELIVERY_NOT_FOUND: { code: 'DELIVERY_NOT_FOUND', statusCode: 404, message: 'Entrega no encontrada' },
+  INVALID_DELIVERY_STATUS: {
+    code: 'INVALID_DELIVERY_STATUS',
+    statusCode: 400,
+    message: 'El estado de la entrega no es válido o no se puede aplicar desde el estado actual',
+  },
+  INVALID_DELIVERY_DRIVER: {
+    code: 'INVALID_DELIVERY_DRIVER',
+    statusCode: 400,
+    message: 'Para asignar una entrega hay que enviar el id de un usuario con rol DRIVER',
+  },
 
   // Mocks
   INVALID_MOCK_QTY: { code: 'INVALID_MOCK_QTY', statusCode: 400, message: 'La cantidad de datos a generar no es válida' },

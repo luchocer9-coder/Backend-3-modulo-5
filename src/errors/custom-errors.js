@@ -58,6 +58,36 @@ export class InvalidOrderUserError extends AppError {
   }
 }
 
+export class InvalidOrderItemsError extends AppError {
+  constructor() {
+    super(ERRORS.INVALID_ORDER_ITEMS);
+  }
+}
+
+export class InvalidOrderStatusError extends AppError {
+  constructor(current, received, allowed) {
+    super(ERRORS.INVALID_ORDER_STATUS, { current, received, allowed });
+  }
+}
+
+export class DeliveryNotFoundError extends AppError {
+  constructor(id) {
+    super(ERRORS.DELIVERY_NOT_FOUND, { id });
+  }
+}
+
+export class InvalidDeliveryStatusError extends AppError {
+  constructor(current, received, allowed) {
+    super(ERRORS.INVALID_DELIVERY_STATUS, { current, received, allowed });
+  }
+}
+
+export class InvalidDeliveryDriverError extends AppError {
+  constructor(driver, role = null) {
+    super(ERRORS.INVALID_DELIVERY_DRIVER, { driver, role });
+  }
+}
+
 export class InvalidMockQuantityError extends AppError {
   constructor(received, min, max) {
     super(ERRORS.INVALID_MOCK_QTY, { received, min, max });
