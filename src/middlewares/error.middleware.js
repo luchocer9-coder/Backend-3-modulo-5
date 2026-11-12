@@ -1,5 +1,6 @@
 import { AppError } from '../errors/custom-errors.js';
 import { ERRORS } from '../errors/error-dictionary.js';
+import { logger } from '../config/logger.config.js';
 
 // Convierte cualquier error en un AppError del diccionario
 const toAppError = (err) => {
@@ -28,13 +29,24 @@ const toAppError = (err) => {
   return new AppError(ERRORS.INTERNAL_ERROR);
 };
 
+// Errores esperados (4xx) -> warning. Errores del servidor (5xx) -> error, con su stack
+const logError = (appError, err, req) => {
+  const details = appError.details ? ` ${JSON.stringify(appError.details)}` : '';
+  const summary = `${appError.code} en ${req.method} ${req.originalUrl}: ${appError.message}${details}`;
+
+  if (appError.statusCode >= 500) {
+    const original = appError === err ? (err.cause ?? err) : err;
+    logger.error(summary, { stack: original.stack });
+    return;
+  }
+
+  logger.warning(summary);
+};
+
 export const errorHandler = (err, req, res, next) => {
   const appError = toAppError(err);
 
-  // Solo se registran en consola los errores inesperados
-  if (appError.code === ERRORS.INTERNAL_ERROR.code) {
-    console.error(err);
-  }
+  logError(appError, err, req);
 
   res.status(appError.statusCode).json({
     status: 'error',

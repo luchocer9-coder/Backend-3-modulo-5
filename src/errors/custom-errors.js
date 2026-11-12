@@ -1,8 +1,8 @@
 import { ERRORS } from './error-dictionary.js';
 
 export class AppError extends Error {
-  constructor(errorType, details = null) {
-    super(errorType.message);
+  constructor(errorType, details = null, cause = null) {
+    super(errorType.message, cause ? { cause } : undefined);
     this.name = 'AppError';
     this.code = errorType.code;
     this.statusCode = errorType.statusCode;
@@ -46,6 +46,18 @@ export class InvalidProductStatusError extends AppError {
   }
 }
 
+export class OrderNotFoundError extends AppError {
+  constructor(id) {
+    super(ERRORS.ORDER_NOT_FOUND, { id });
+  }
+}
+
+export class InvalidOrderUserError extends AppError {
+  constructor(userId, role) {
+    super(ERRORS.INVALID_ORDER_USER, { userId, role });
+  }
+}
+
 export class InvalidMockQuantityError extends AppError {
   constructor(received, min, max) {
     super(ERRORS.INVALID_MOCK_QTY, { received, min, max });
@@ -65,7 +77,7 @@ export class MockSeedForbiddenError extends AppError {
 }
 
 export class MockSeedError extends AppError {
-  constructor(reason) {
-    super(ERRORS.MOCK_SEED_FAILED, { reason });
+  constructor(reason, cause) {
+    super(ERRORS.MOCK_SEED_FAILED, { reason }, cause);
   }
 }

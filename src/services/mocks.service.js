@@ -15,6 +15,7 @@ import {
   MockSeedForbiddenError,
   MockSeedError,
 } from '../errors/custom-errors.js';
+import { logger } from '../config/logger.config.js';
 
 const DEFAULT_QTY = 5;
 const MIN_QTY = 1;
@@ -127,30 +128,38 @@ const runSeed = async (seed) => {
     return await seed();
   } catch (error) {
     if (error instanceof AppError) throw error;
-    console.error(error);
-    throw new MockSeedError(error.code === 11000 ? 'DUPLICATE_KEY' : error.name);
+    throw new MockSeedError(error.code === 11000 ? 'DUPLICATE_KEY' : error.name, error);
   }
 };
 
 class MocksService {
   getUsers(qty) {
-    return Array.from({ length: parseQty(qty) }, () =>
+    const users = Array.from({ length: parseQty(qty) }, () =>
       generateUser(faker.helpers.arrayElement(MOCK_ROLES)),
     );
+    logger.info(`Mocks generados sin guardar: ${users.length} usuarios`);
+    return users;
   }
 
   getDrivers(qty) {
-    return Array.from({ length: parseQty(qty) }, () => generateUser(USER_ROLES.DRIVER));
+    const drivers = Array.from({ length: parseQty(qty) }, () => generateUser(USER_ROLES.DRIVER));
+    logger.info(`Mocks generados sin guardar: ${drivers.length} repartidores`);
+    return drivers;
   }
 
   getDataset(qty) {
-    return generateDataset(parseQty(qty));
+    const dataset = generateDataset(parseQty(qty));
+    logger.info(
+      `Mocks generados sin guardar: ${dataset.users.length} usuarios, ${dataset.orders.length} pedidos y ${dataset.deliveries.length} entregas`,
+    );
+    return dataset;
   }
 
-    async seedUsers(qty) {
+  async seedUsers(qty) {
     ensureSeedAllowed();
     const users = await withPassword(this.getUsers(qty));
     const inserted = await runSeed(() => mocksRepository.insertUsers(users));
+    logger.info(`Datos de prueba insertados en MongoDB: ${inserted} usuarios`);
     return { insertados: inserted, coleccion: 'users' };
   }
 
@@ -159,6 +168,9 @@ class MocksService {
     const dataset = generateDataset(parseQty(qty));
     const users = await withPassword(dataset.users);
     const inserted = await runSeed(() => mocksRepository.insertDataset({ ...dataset, users }));
+    logger.info(
+      `Datos de prueba insertados en MongoDB: ${inserted.users} usuarios, ${inserted.orders} pedidos y ${inserted.deliveries} entregas`,
+    );
     return { insertados: inserted };
   }
 }

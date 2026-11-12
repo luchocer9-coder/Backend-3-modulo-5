@@ -114,6 +114,11 @@ Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/mocks/seed/datase
 | GET, PUT, DELETE | `/api/products/:id` | Obtiene, actualiza o elimina un producto |
 | GET, POST | `/api/users` | Lista usuarios o crea uno |
 | GET, PUT, DELETE | `/api/users/:id` | Obtiene, actualiza o elimina un usuario |
+| GET, POST | `/api/orders` | Lista pedidos o crea uno |
+| GET | `/api/orders/:id` | Obtiene un pedido |
+| GET | `/api/loggerTest` | Genera un log de prueba en cada nivel |
+
+Para crear un pedido se envía `user` (id de un usuario con rol `USER`), `address`, `total` y, opcionalmente, `priority` (`LOW`, `MEDIUM` o `HIGH`). Todo pedido nuevo empieza con estado `PENDING`.
 
 ## Por qué separé Service y Repository
 
@@ -159,12 +164,14 @@ Los services detectan los errores y los lanzan. Los controllers y las rutas no a
 | `INVALID_JSON` | 400 | El cuerpo de la petición no es un JSON válido |
 | `VALIDATION_ERROR` | 400 | Faltan datos o no cumplen las reglas del modelo |
 | `INVALID_PASSWORD` | 400 | La contraseña tiene menos de 8 caracteres |
+| `INVALID_ORDER_USER` | 400 | Se intenta crear un pedido para un usuario que no tiene rol `USER` |
 | `INVALID_PRODUCT_STATUS` | 400 | Se envía `status` en un producto, aunque se calcula según el stock |
 | `INVALID_MOCK_QTY` | 400 | `qty` no es un entero entre 1 y 100 |
 | `NEGATIVE_MOCK_QTY` | 400 | `qty` es negativo |
 | `MOCK_SEED_FORBIDDEN` | 403 | Se intenta cargar datos con `NODE_ENV=production` |
 | `USER_NOT_FOUND` | 404 | No existe el usuario |
 | `PRODUCT_NOT_FOUND` | 404 | No existe el producto |
+| `ORDER_NOT_FOUND` | 404 | No existe el pedido |
 | `ROUTE_NOT_FOUND` | 404 | La ruta no existe |
 | `DUPLICATE_KEY` | 409 | Ya existe un registro con ese dato único, como el email |
 | `MOCK_SEED_FAILED` | 500 | MongoDB falló durante la carga de datos de prueba |
@@ -188,3 +195,68 @@ Para probar un POST desde PowerShell:
 ```powershell
 curl.exe -X POST "http://localhost:8080/api/mocks/seed?qty=-1"
 ```
+
+## Logging
+
+La API usa [Winston](https://github.com/winstonjs/winston) como logger centralizado, con rotación de archivos mediante `winston-daily-rotate-file`. La configuración está en `src/config/logger.config.js` y el resto de los archivos importa el mismo `logger`.
+
+Cada línea tiene fecha y hora, nivel y mensaje:
+
+```text
+2026-11-12 12:33:13 [info]    Servidor ShipNow escuchando en el puerto 8080 (development)
+2026-11-12 12:33:13 [info]    Conexión a MongoDB establecida
+2026-11-12 12:33:13 [warning] ORDER_NOT_FOUND en GET /api/orders/6af3...: Pedido no encontrado {"id":"6af3..."}
+2026-11-12 12:33:13 [error]   INTERNAL_ERROR en GET /api/products: Error interno del servidor
+```
+
+### Niveles
+
+Ordenados del más grave al menos grave:
+
+| Nivel | Uso en ShipNow |
+|---|---|
+| `fatal` | Fallas que impiden arrancar: faltan variables de entorno o no se puede conectar a MongoDB |
+| `error` | Errores inesperados del servidor y fallas al cargar datos de prueba |
+| `warning` | Errores esperados del negocio: datos inválidos, registros inexistentes, rutas que no existen |
+| `info` | Servidor iniciado, conexión a MongoDB, pedidos creados, mocks generados e insertados |
+| `http` | Cada petición: método, ruta, status y duración |
+| `debug` | Detalles útiles solo para desarrollo |
+
+### Comportamiento según el entorno
+
+El entorno se toma de `NODE_ENV`, definida en el `.env`.
+
+| | `development` | `production` |
+|---|---|---|
+| Consola | Desde `debug`, con colores | Desde `info`, sin colores |
+| `combined-AAAA-MM-DD.log` | Desde `debug` | Desde `info` |
+| `error-AAAA-MM-DD.log` | Solo `error` y `fatal` | Solo `error` y `fatal` |
+
+### Archivos de logs y rotación
+
+Los archivos se crean automáticamente en la carpeta `logs/`, en la raíz del proyecto:
+
+- `logs/error-AAAA-MM-DD.log`: solo `error` y `fatal`, incluidos los errores que no se atraparon en ningún otro lado.
+- `logs/combined-AAAA-MM-DD.log`: todos los logs desde el nivel mínimo del entorno.
+
+Se crea un archivo nuevo por día, o antes si un archivo supera los 10 MB, y se conservan los últimos 14 días. Los más viejos se borran solos.
+
+La carpeta `logs/` está en `.gitignore`, junto con `.env` y `node_modules/`, así que ningún log generado se sube al repositorio.
+
+### Cómo probar el logger
+
+Con el servidor corriendo, abrir en el navegador:
+
+```text
+http://localhost:8080/api/loggerTest
+```
+
+El endpoint genera un log en cada nivel y responde cuáles se ven según el entorno. Después de probarlo:
+
+- En la consola aparecen los 6 niveles en `development`, o desde `info` en `production`.
+- En `logs/error-AAAA-MM-DD.log` aparecen solo los de `error` y `fatal`.
+- En `logs/combined-AAAA-MM-DD.log` aparecen todos los que se ven en consola.
+
+Este endpoint es una herramienta interna para revisar la configuración y no forma parte del negocio.
+
+Para ver un `fatal` real, borrar `MONGODB_URI` del `.env` y correr `npm run dev`: el servidor no arranca y el motivo queda en consola y en el archivo de errores.

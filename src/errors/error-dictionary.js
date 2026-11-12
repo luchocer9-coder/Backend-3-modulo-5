@@ -19,6 +19,14 @@ export const ERRORS = Object.freeze({
     message: 'El estado del producto se calcula según el stock y no puede enviarse',
   },
 
+  // Pedidos
+  ORDER_NOT_FOUND: { code: 'ORDER_NOT_FOUND', statusCode: 404, message: 'Pedido no encontrado' },
+  INVALID_ORDER_USER: {
+    code: 'INVALID_ORDER_USER',
+    statusCode: 400,
+    message: 'Los pedidos solo pueden pertenecer a usuarios con rol USER',
+  },
+
   // Mocks
   INVALID_MOCK_QTY: { code: 'INVALID_MOCK_QTY', statusCode: 400, message: 'La cantidad de datos a generar no es válida' },
   NEGATIVE_MOCK_QTY: { code: 'NEGATIVE_MOCK_QTY', statusCode: 400, message: 'La cantidad de datos a generar no puede ser negativa' },
